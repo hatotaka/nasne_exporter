@@ -1,0 +1,21 @@
+## Build
+FROM golang:1.11 AS build
+
+ENV workdir /go/src/github.com/hatotaka/nasne_exporter
+ENV CGO_ENABLED 0
+ENV GOARCH arm
+
+ADD . ${workdir}
+WORKDIR ${workdir}
+
+RUN go build \
+  -o /tmp/nasne_exporter \
+  github.com/hatotaka/nasne_exporter/cmd/nasne_exporter 
+
+## Run
+FROM scratch
+
+EXPOSE 8080
+COPY --from=build /tmp/nasne_exporter /opt/bin/
+
+ENTRYPOINT ["/opt/bin/nasne_exporter"]

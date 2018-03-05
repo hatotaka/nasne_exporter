@@ -1,0 +1,67 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: prometheus
+data:
+  alertmanager.yaml: |
+    global:
+      slack_api_url: https://hooks.slack.com/XXXXXXXXXXXXXXXXXXXXXXXX
+    route:
+      receiver: 'slack'
+      group_by: ['alertname', 'name']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 3h
+    receivers:
+    - name: 'slack'
+      slack_configs:
+      - channel: '#nasne_exporter'
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: prometheus
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      volumes:
+      - name: alertmanager-config
+        configMap:
+          name: alertmanager-config
+      containers:
+      - name: alertmanager
+        image: quay.io/arm-container/alertmanager:v0.15.3-0
+        args:
+        - --config.file=/etc/alertmanager/alertmanager.yaml
+        ports:
+        - containerPort: 9093
+        volumeMounts:
+          - name: alertmanager-config
+            mountPath: /etc/alertmanager/alertmanager.yaml
+            subPath: alertmanager.yaml
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name:  alertmanager
+  namespace: prometheus
+spec:
+  selector:
+    app: alertmanager
+  ports:
+  - protocol: TCP
+    port: 9093
+    targetPort: 9093
+  type: NodePort
