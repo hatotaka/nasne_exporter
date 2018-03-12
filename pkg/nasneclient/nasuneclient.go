@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/k0kubun/pp"
+	"github.com/golang/glog"
 )
 
 type NasneClient struct {
@@ -156,11 +156,9 @@ func (nc *NasneClient) getJson(endpoint string, data interface{}, values *url.Va
 		query = values.Encode()
 	}
 
-	fmt.Printf("=====================\n")
-
 	url := fmt.Sprintf("http://%s:64210/status/%s?%s", nc.IPAddr, endpoint, query)
 
-	fmt.Printf("url=%s\n", url)
+	glog.Infof("url = %v", url)
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -172,13 +170,13 @@ func (nc *NasneClient) getJson(endpoint string, data interface{}, values *url.Va
 		return err
 	}
 	defer res.Body.Close()
-	fmt.Printf("json=%s\n", string(body))
+	glog.Infof("json=%v", string(body))
 
 	if err := json.Unmarshal(body, data); err != nil {
 		return err
 	}
 
-	pp.Println(data)
+	glog.Infof("%+v", data)
 
 	return nil
 }
