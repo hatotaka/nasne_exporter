@@ -1,26 +1,27 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/hatotaka/nasne-exporter/pkg/nasneclient"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 )
 
 const (
-	ListenPort = ":8080"
-)
-
-const (
-	flagNasneAddr = "nasne-addr"
-	flagListen    = "listen"
+	flagNasneAddr   = "nasne-addr"
+	flagListen      = "listen"
+	flagMetricsPath = "metrics-path"
 )
 
 func main() {
@@ -39,9 +40,18 @@ func NewCommand() *cobra.Command {
 		RunE:  RunNasneExporter,
 	}
 
-	cmd.Flags().StringSlice(flagNasneAddr, []string{}, "Address of Nasne")
-	cmd.Flags().String(flagListen, ":8080", "Listen")
+	// debug
+	nasneAddr := []string{
+		"10.0.1.23",
+		"10.0.1.25",
+		"10.0.1.22",
+	}
 
+	cmd.Flags().StringSlice(flagNasneAddr, nasneAddr, "Address of Nasne")
+	cmd.Flags().String(flagListen, ":8080", "Listen")
+	cmd.Flags().String(flagMetricsPath, "/metrics", "Path of metrics")
+
+	flag.Lookup("logtostderr").Value.Set("true")
 	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
 	return cmd
@@ -55,13 +65,7 @@ func RunNasneExporter(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	// debug
-	nasneAddr = []string{
-		"10.0.1.23",
-		"10.0.1.25",
-		"10.0.1.22",
-	}
-	glog.Infof("%s = %v", flagNasneAddr, nasneAddr)
+	glog.Infof("%v = %v", flagNasneAddr, nasneAddr)
 
 	listen, err := cmd.Flags().GetString(flagListen)
 	if err != nil {
@@ -69,11 +73,45 @@ func RunNasneExporter(cmd *cobra.Command, args []string) error {
 	}
 	glog.Infof("%v = %v", flagListen, nasneAddr)
 
+	metricsPath, err := cmd.Flags().GetString(flagMetricsPath)
+	if err != nil {
+		return err
+	}
+	glog.Infof("%v = %v", flagMetricsPath, metricsPath)
+
 	nasneExporter, err := NewNasneExporter(nasneAddr, listen)
+	if err != nil {
+		return err
+	}
 
 	nasneExporter.Run()
-	http.Handle("/metrics", prometheus.Handler())
-	http.ListenAndServe(ListenPort, nil)
+
+	srv := &http.Server{
+		Addr:    listen,
+		Handler: nasneExporter.Handler(),
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			glog.Info(err)
+		}
+	}()
+
+	// シグナルを待つ
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGTERM)
+	<-sigCh
+
+	// シグナルを受け取ったらShutdown
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Print(err)
+	}
+
+	/*
+		http.Handle(metricsPath, nasneExporter.Handler())
+		http.ListenAndServe(listen, nil)
+	*/
 
 	return nil
 }
@@ -88,10 +126,15 @@ func NewNasneExporter(nasneAddrs []string, listen string) (*NasneExporter, error
 	return &NasneExporter{nasneAddrs: nasneAddrs, listen: listen, metrics: initMetrics()}, nil
 }
 
+func (ne *NasneExporter) Handler() http.Handler {
+	return promhttp.HandlerFor(ne.metrics.Registry, promhttp.HandlerOpts{})
+}
+
 func (ne *NasneExporter) Run() {
 	go func() {
 		for {
 			for _, ip := range ne.nasneAddrs {
+				glog.Infof("start (ip = %v)", ip)
 				client, err := nasneclient.NewNasneClient(ip)
 				if err != nil {
 					log.Fatal(err)
@@ -165,7 +208,7 @@ func (ne *NasneExporter) Run() {
 
 					ne.metrics.DtcpipClientTotal.With(label).Set(float64(dtcpipClientList.Number))
 				}
-
+				glog.Infof("end (ip = %v)", ip)
 			}
 
 			time.Sleep(60 * time.Second)
@@ -178,6 +221,8 @@ func main2() {
 }
 
 type MetricInfo struct {
+	Registry *prometheus.Registry
+
 	Uptime            *prometheus.GaugeVec
 	HDDTotal          *prometheus.GaugeVec
 	HDDUsed           *prometheus.GaugeVec
@@ -185,13 +230,21 @@ type MetricInfo struct {
 	Info              *prometheus.GaugeVec
 }
 
+const (
+	namespace = "nasne"
+)
+
 func initMetrics() MetricInfo {
 
 	m := MetricInfo{}
+	reg := prometheus.NewRegistry()
+
+	m.Registry = reg
 
 	m.Info = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "nasne_info",
-		Help: "info of nasne",
+		Namespace: namespace,
+		Name:      "info",
+		Help:      "info of nasne",
 	},
 		[]string{
 			"name",
@@ -199,21 +252,24 @@ func initMetrics() MetricInfo {
 			"hardware_version",
 			"product_name",
 		})
-	prometheus.MustRegister(m.Info)
+	reg.MustRegister(m.Info)
 
 	m.Uptime = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "nasne_uptime",
-		Help: "nasne uptime",
+
+		Namespace: namespace,
+		Name:      "uptime",
+		Help:      "nasne uptime",
 	},
 		[]string{
 			"name",
 			"ipaddr",
 		})
-	prometheus.MustRegister(m.Uptime)
+	reg.MustRegister(m.Uptime)
 
 	m.HDDTotal = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "nasne_hdd_byte_total",
-		Help: "nasne hdd byte total",
+		Namespace: namespace,
+		Name:      "hdd_byte_total",
+		Help:      "nasne hdd byte total",
 	},
 		[]string{
 			"name",
@@ -223,11 +279,12 @@ func initMetrics() MetricInfo {
 			"vendor_id",
 			"product_id",
 		})
-	prometheus.MustRegister(m.HDDTotal)
+	reg.MustRegister(m.HDDTotal)
 
 	m.HDDUsed = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "nasne_hdd_byte_used",
-		Help: "nasne hdd byte used",
+		Namespace: namespace,
+		Name:      "hdd_byte_used",
+		Help:      "nasne hdd byte used",
 	},
 		[]string{
 			"name",
@@ -237,16 +294,17 @@ func initMetrics() MetricInfo {
 			"vendor_id",
 			"product_id",
 		})
-	prometheus.MustRegister(m.HDDUsed)
+	reg.MustRegister(m.HDDUsed)
 
 	m.DtcpipClientTotal = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "nasne_dtcpip_client_total",
-		Help: "nasne dtcpip client total",
+		Namespace: namespace,
+		Name:      "dtcpip_client_total",
+		Help:      "nasne dtcpip client total",
 	},
 		[]string{
 			"name",
 		})
-	prometheus.MustRegister(m.DtcpipClientTotal)
+	reg.MustRegister(m.DtcpipClientTotal)
 
 	return m
 }

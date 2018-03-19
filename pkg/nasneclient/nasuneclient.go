@@ -176,7 +176,7 @@ func (nc *NasneClient) getJson(endpoint string, data interface{}, values *url.Va
 		return err
 	}
 
-	glog.Infof("%+v", data)
+	glog.Infof("data=%+v", data)
 
 	return nil
 }
