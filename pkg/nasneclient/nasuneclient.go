@@ -11,12 +11,13 @@ import (
 	"github.com/golang/glog"
 )
 
+const loglevel = 10
+
 type NasneClient struct {
 	IPAddr string
 }
 
 func NewNasneClient(ipAddr string) (*NasneClient, error) {
-
 	return &NasneClient{ipAddr}, nil
 }
 
@@ -158,7 +159,7 @@ func (nc *NasneClient) getJson(endpoint string, data interface{}, values *url.Va
 
 	url := fmt.Sprintf("http://%s:64210/status/%s?%s", nc.IPAddr, endpoint, query)
 
-	glog.Infof("url = %v", url)
+	glog.V(loglevel).Infof("url = %v", url)
 
 	res, err := http.Get(url)
 	if err != nil {
@@ -170,13 +171,13 @@ func (nc *NasneClient) getJson(endpoint string, data interface{}, values *url.Va
 		return err
 	}
 	defer res.Body.Close()
-	glog.Infof("json=%v", string(body))
+	glog.V(loglevel).Infof("json=%v", string(body))
 
 	if err := json.Unmarshal(body, data); err != nil {
 		return err
 	}
 
-	glog.Infof("data=%+v", data)
+	glog.V(loglevel).Infof("data=%+v", data)
 
 	return nil
 }
