@@ -57,16 +57,35 @@ func NewNasneCollector(nasneAddrs []string) prometheus.Collector {
 			},
 			nil,
 		),
+		recordedTitleTotal: prometheus.NewDesc(
+			"nasne_recorded_title_total",
+			"number of dtcpip client",
+			[]string{
+				"name",
+			},
+			nil,
+		),
+
+		reservedConflictTotal: prometheus.NewDesc(
+			"nasne_conflict_total",
+			"number of conflict",
+			[]string{
+				"name",
+			},
+			nil,
+		),
 	}
 }
 
 type nasneCollector struct {
 	nasneAddrs []string
 
-	info              *prometheus.Desc
-	hddTotal          *prometheus.Desc
-	hddUsed           *prometheus.Desc
-	dtcpipClientTotal *prometheus.Desc
+	info                  *prometheus.Desc
+	hddTotal              *prometheus.Desc
+	hddUsed               *prometheus.Desc
+	dtcpipClientTotal     *prometheus.Desc
+	recordedTitleTotal    *prometheus.Desc
+	reservedConflictTotal *prometheus.Desc
 }
 
 func (n *nasneCollector) Describe(ch chan<- *prometheus.Desc) {
@@ -74,6 +93,8 @@ func (n *nasneCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- n.hddTotal
 	ch <- n.hddUsed
 	ch <- n.dtcpipClientTotal
+	ch <- n.recordedTitleTotal
+	ch <- n.reservedConflictTotal
 }
 
 func (n *nasneCollector) Collect(ch chan<- prometheus.Metric) {
@@ -150,6 +171,39 @@ func (n *nasneCollector) Collect(ch chan<- prometheus.Metric) {
 
 			ch <- prometheus.MustNewConstMetric(n.dtcpipClientTotal, prometheus.GaugeValue, float64(dtcpipClientList.Number), labelValues...)
 		}
+		{
+			recordedTitleList, err := client.GetRecordedTitleList()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			labelValues := []string{
+				bn.Name,
+			}
+
+			ch <- prometheus.MustNewConstMetric(n.recordedTitleTotal, prometheus.GaugeValue, float64(recordedTitleList.TotalMatches), labelValues...)
+		}
+		{
+			reservedList, err := client.GetReservedList()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			labelValues := []string{
+				bn.Name,
+			}
+
+			var conflictCount float64
+			for _, r := range reservedList.Item {
+				if r.ConflictID != 0 {
+					conflictCount++
+					glog.Info(r)
+				}
+			}
+
+			ch <- prometheus.MustNewConstMetric(n.reservedConflictTotal, prometheus.GaugeValue, conflictCount, labelValues...)
+		}
+
 		glog.V(2).Infof("end colllect: ipaddr = %v", ip)
 	}
 
