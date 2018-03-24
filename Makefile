@@ -1,4 +1,4 @@
-CONTAINER_NAME=hatotaka/nasne-exporter
+CONTAINER_NAME=quay.io/hatotaka/nasne-exporter
 
 container:
 	docker build -t $(CONTAINER_NAME):local .
