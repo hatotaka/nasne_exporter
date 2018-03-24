@@ -81,6 +81,8 @@ func RunNasneExporter(cmd *cobra.Command, args []string) error {
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collector)
 
+	go collector.Run()
+
 	srv := &http.Server{
 		Addr:    listen,
 		Handler: promhttp.HandlerFor(reg, promhttp.HandlerOpts{}),

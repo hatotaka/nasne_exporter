@@ -3,14 +3,16 @@ package collector
 import (
 	"log"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/hatotaka/nasne-exporter/pkg/nasneclient"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-func NewNasneCollector(nasneAddrs []string) prometheus.Collector {
-	return &nasneCollector{
+func NewNasneCollector(nasneAddrs []string) *NasneCollector {
+	return &NasneCollector{
 		nasneAddrs: nasneAddrs,
 
 		info: prometheus.NewDesc(
@@ -77,7 +79,7 @@ func NewNasneCollector(nasneAddrs []string) prometheus.Collector {
 	}
 }
 
-type nasneCollector struct {
+type NasneCollector struct {
 	nasneAddrs []string
 
 	info                  *prometheus.Desc
@@ -86,9 +88,30 @@ type nasneCollector struct {
 	dtcpipClientTotal     *prometheus.Desc
 	recordedTitleTotal    *prometheus.Desc
 	reservedConflictTotal *prometheus.Desc
+
+	cache metricsCache
 }
 
-func (n *nasneCollector) Describe(ch chan<- *prometheus.Desc) {
+type metricsCache struct {
+	mu sync.Mutex
+	m  []prometheus.Metric
+}
+
+func (mc *metricsCache) Set(metricsList []prometheus.Metric) {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+
+	mc.m = metricsList
+}
+
+func (mc *metricsCache) Get() []prometheus.Metric {
+	mc.mu.Lock()
+	defer mc.mu.Unlock()
+
+	return mc.m
+}
+
+func (n *NasneCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- n.info
 	ch <- n.hddTotal
 	ch <- n.hddUsed
@@ -97,8 +120,31 @@ func (n *nasneCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- n.reservedConflictTotal
 }
 
-func (n *nasneCollector) Collect(ch chan<- prometheus.Metric) {
+func (n *NasneCollector) Collect(ch chan<- prometheus.Metric) {
+	for _, m := range n.cache.Get() {
+		ch <- m
+	}
+}
+
+func (n *NasneCollector) Run() error {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	n.runCollect()
+
+	for t := range ticker.C {
+		glog.V(2).Info(t)
+
+		n.runCollect()
+	}
+
+	return nil
+}
+
+func (n *NasneCollector) runCollect() {
 	glog.V(2).Info("start collect")
+
+	metrics := []prometheus.Metric{}
 
 	for _, ip := range n.nasneAddrs {
 		glog.V(2).Infof("start colllect: ipaddr = %v", ip)
@@ -124,11 +170,15 @@ func (n *nasneCollector) Collect(ch chan<- prometheus.Metric) {
 				log.Fatal(err)
 			}
 
-			ch <- prometheus.MustNewConstMetric(n.info, prometheus.GaugeValue, float64(1),
+			labelValues := []string{
 				bn.Name,
 				softwareVersion.SoftwareVersion,
 				strconv.Itoa(hardwareVersion.HardwareVersion),
 				hardwareVersion.ProductName,
+			}
+
+			metrics = append(metrics,
+				prometheus.MustNewConstMetric(n.info, prometheus.GaugeValue, float64(1), labelValues...),
 			)
 		}
 
@@ -153,8 +203,10 @@ func (n *nasneCollector) Collect(ch chan<- prometheus.Metric) {
 					hddInfo.HDD.ProductID,
 				}
 
-				ch <- prometheus.MustNewConstMetric(n.hddTotal, prometheus.GaugeValue, hddInfo.HDD.TotalVolumeSize, labelValues...)
-				ch <- prometheus.MustNewConstMetric(n.hddUsed, prometheus.GaugeValue, hddInfo.HDD.UsedVolumeSize, labelValues...)
+				metrics = append(metrics,
+					prometheus.MustNewConstMetric(n.hddTotal, prometheus.GaugeValue, hddInfo.HDD.TotalVolumeSize, labelValues...),
+					prometheus.MustNewConstMetric(n.hddUsed, prometheus.GaugeValue, hddInfo.HDD.UsedVolumeSize, labelValues...),
+				)
 
 			}
 		}
@@ -169,7 +221,9 @@ func (n *nasneCollector) Collect(ch chan<- prometheus.Metric) {
 				bn.Name,
 			}
 
-			ch <- prometheus.MustNewConstMetric(n.dtcpipClientTotal, prometheus.GaugeValue, float64(dtcpipClientList.Number), labelValues...)
+			metrics = append(metrics,
+				prometheus.MustNewConstMetric(n.dtcpipClientTotal, prometheus.GaugeValue, float64(dtcpipClientList.Number), labelValues...),
+			)
 		}
 		{
 			recordedTitleList, err := client.GetRecordedTitleList()
@@ -181,7 +235,9 @@ func (n *nasneCollector) Collect(ch chan<- prometheus.Metric) {
 				bn.Name,
 			}
 
-			ch <- prometheus.MustNewConstMetric(n.recordedTitleTotal, prometheus.GaugeValue, float64(recordedTitleList.TotalMatches), labelValues...)
+			metrics = append(metrics,
+				prometheus.MustNewConstMetric(n.recordedTitleTotal, prometheus.GaugeValue, float64(recordedTitleList.TotalMatches), labelValues...),
+			)
 		}
 		{
 			reservedList, err := client.GetReservedList()
@@ -201,12 +257,15 @@ func (n *nasneCollector) Collect(ch chan<- prometheus.Metric) {
 				}
 			}
 
-			ch <- prometheus.MustNewConstMetric(n.reservedConflictTotal, prometheus.GaugeValue, conflictCount, labelValues...)
+			metrics = append(metrics,
+				prometheus.MustNewConstMetric(n.reservedConflictTotal, prometheus.GaugeValue, conflictCount, labelValues...),
+			)
 		}
 
 		glog.V(2).Infof("end colllect: ipaddr = %v", ip)
 	}
 
-	glog.V(2).Info("end collect")
+	n.cache.Set(metrics)
 
+	glog.V(2).Info("end collect")
 }
