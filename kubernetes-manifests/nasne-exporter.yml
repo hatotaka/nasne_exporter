@@ -4,7 +4,7 @@ kind: Deployment
 metadata:
   name: nasne-exporter-deployment
   labels:
-    app: nginx
+    app: nasne-exporter
 spec:
   replicas: 1
   selector:
@@ -20,3 +20,16 @@ spec:
         image: quay.io/hatotaka/nasne-exporter
         ports:
         - containerPort: 8080
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nasne-exporter
+spec:
+  selector:
+    app: nasne-exporter
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: NodePort

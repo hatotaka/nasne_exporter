@@ -253,7 +253,6 @@ func (n *NasneCollector) runCollect() {
 			for _, r := range reservedList.Item {
 				if r.ConflictID != 0 {
 					conflictCount++
-					glog.Info(r)
 				}
 			}
 
