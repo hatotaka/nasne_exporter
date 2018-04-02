@@ -6,7 +6,10 @@ ENV workdir /go/src/github.com/hatotaka/nasne-exporter
 ADD . ${workdir}
 WORKDIR ${workdir}
 
-RUN GOARCH=arm go build -o /tmp/nasne-exporter-arm
+RUN GOARCH=arm \
+  go build \
+  -o /tmp/nasne-exporter-arm \
+  github.com/hatotaka/nasne-exporter/cmd/nasne-exporter 
 
 ## Run
 FROM scratch
