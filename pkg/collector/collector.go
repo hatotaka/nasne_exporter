@@ -79,10 +79,22 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 			"time of last collect",
 			nil, nil,
 		),
-		collectDuration: prometheus.NewDesc(
-			"nasne_last_collect_duration_nanoseconds",
-			"duration of last collect",
-			nil, nil,
+
+		totalCollectionDurationsHistogram: prometheus.NewHistogram(
+			prometheus.HistogramOpts{
+				Name:    "nasne_total_collection_durations_histogram_seconds",
+				Help:    "Total collection latency distributions.",
+				Buckets: prometheus.ExponentialBuckets(0.1, 2, 10),
+			},
+		),
+
+		collectionDurationsHistogram: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "nasne_collection_durations_histogram_seconds",
+				Help:    "Collection latency distributions.",
+				Buckets: prometheus.ExponentialBuckets(0.1, 2, 10),
+			},
+			[]string{"name"},
 		),
 	}
 }
@@ -97,7 +109,9 @@ type NasneCollector struct {
 	recordedTitleTotal    *prometheus.Desc
 	reservedConflictTotal *prometheus.Desc
 	collectTime           *prometheus.Desc
-	collectDuration       *prometheus.Desc
+
+	totalCollectionDurationsHistogram prometheus.Histogram
+	collectionDurationsHistogram      *prometheus.HistogramVec
 
 	cache metricsCache
 }
@@ -129,7 +143,6 @@ func (n *NasneCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- n.recordedTitleTotal
 	ch <- n.reservedConflictTotal
 	ch <- n.collectTime
-	ch <- n.collectDuration
 }
 
 func (n *NasneCollector) Collect(ch chan<- prometheus.Metric) {
@@ -153,11 +166,23 @@ func (n *NasneCollector) Run() error {
 	return nil
 }
 
+func (n *NasneCollector) RegisterCollector(r *prometheus.Registry) {
+	r.MustRegister(n)
+	r.MustRegister(n.totalCollectionDurationsHistogram)
+	r.MustRegister(n.collectionDurationsHistogram)
+}
+
 func (n *NasneCollector) collectNasneCollector(start, end time.Time) ([]prometheus.Metric, error) {
+	n.totalCollectionDurationsHistogram.Observe(float64(end.Sub(start).Nanoseconds()) / float64(time.Second))
+
 	return []prometheus.Metric{
 		prometheus.MustNewConstMetric(n.collectTime, prometheus.GaugeValue, float64(start.Unix())),
-		prometheus.MustNewConstMetric(n.collectDuration, prometheus.GaugeValue, float64(end.Sub(start).Nanoseconds())),
 	}, nil
+}
+
+func (n *NasneCollector) collectCollectionDuration(start, end time.Time, commonLabel []string) ([]prometheus.Metric, error) {
+	n.collectionDurationsHistogram.WithLabelValues(commonLabel...).Observe(float64(end.Sub(start).Nanoseconds()) / float64(time.Second))
+	return []prometheus.Metric{}, nil
 }
 
 func (n *NasneCollector) collectVersion(client *nasneclient.NasneClient, commonLabel []string) ([]prometheus.Metric, error) {
@@ -269,13 +294,13 @@ func (n *NasneCollector) getCommonLabel(client *nasneclient.NasneClient) ([]stri
 
 func (n *NasneCollector) runCollect() {
 	glog.V(2).Info("start collect")
-
 	start := time.Now()
 
 	metrics := []prometheus.Metric{}
 
 	for _, ip := range n.nasneAddrs {
 		glog.V(2).Infof("start colllect: ipaddr = %v", ip)
+		startEach := time.Now()
 
 		client, err := nasneclient.NewNasneClient(ip)
 		if err != nil {
@@ -319,12 +344,16 @@ func (n *NasneCollector) runCollect() {
 			metrics = append(metrics, m...)
 		}
 
+		if m, err := n.collectCollectionDuration(startEach, time.Now(), commonLabel); err != nil {
+			glog.Error(err)
+		} else {
+			metrics = append(metrics, m...)
+		}
+
 		glog.V(2).Infof("end colllect: ipaddr = %v", ip)
 	}
 
-	end := time.Now()
-
-	if m, err := n.collectNasneCollector(start, end); err != nil {
+	if m, err := n.collectNasneCollector(start, time.Now()); err != nil {
 		glog.Error(err)
 	} else {
 		metrics = append(metrics, m...)

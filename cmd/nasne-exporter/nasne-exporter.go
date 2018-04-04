@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/hatotaka/nasne-exporter/collector"
+	"github.com/hatotaka/nasne-exporter/pkg/collector"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
@@ -77,11 +77,11 @@ func RunNasneExporter(cmd *cobra.Command, args []string) error {
 	}
 	glog.V(2).Infof("%v = %v", flagMetricsPath, metricsPath)
 
-	collector := collector.NewNasneCollector(nasneAddr)
-	reg := prometheus.NewRegistry()
-	reg.MustRegister(collector)
+	nc := collector.NewNasneCollector(nasneAddr)
+	go nc.Run()
 
-	go collector.Run()
+	reg := prometheus.NewRegistry()
+	nc.RegisterCollector(reg)
 
 	srv := &http.Server{
 		Addr:    listen,
