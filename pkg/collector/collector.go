@@ -2,7 +2,6 @@ package collector
 
 import (
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -14,19 +13,23 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 	return &NasneCollector{
 		nasneAddrs: nasneAddrs,
 
-		info: prometheus.NewDesc(
-			"nasne_info",
-			"information of nasne",
+		infoGauge: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "nasne_info",
+				Help: "info of nasne",
+			},
 			[]string{
 				"name",
 				"software_version",
 				"hardware_version",
 				"product_name",
-			}, nil,
+			},
 		),
-		hddTotal: prometheus.NewDesc(
-			"nasne_hdd_byte_total",
-			"hdd byte of nasne",
+		hddTotalGauge: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "nasne_hdd_byte_total",
+				Help: "nasne hdd byte total",
+			},
 			[]string{
 				"name",
 				"id",
@@ -35,11 +38,13 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 				"vendor_id",
 				"product_id",
 			},
-			nil,
 		),
-		hddUsed: prometheus.NewDesc(
-			"nasne_hdd_byte_used",
-			"hdd byte of nasne",
+
+		hddUsedGauge: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "nasne_hdd_byte_used",
+				Help: "nasne hdd byte used",
+			},
 			[]string{
 				"name",
 				"id",
@@ -48,43 +53,51 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 				"vendor_id",
 				"product_id",
 			},
-			nil,
 		),
-		dtcpipClientTotal: prometheus.NewDesc(
-			"nasne_dtcpip_client_total",
-			"number of dtcpip client",
+
+		dtcpipClientTotalGauge: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "nasne_dtcpip_client_total",
+				Help: "nasne dtcpip client total",
+			},
 			[]string{
 				"name",
 			},
-			nil,
 		),
-		recordedTitleTotal: prometheus.NewDesc(
-			"nasne_recorded_title_total",
-			"number of dtcpip client",
+
+		recordedTitleTotalGauge: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "nasne_recorded_title_total",
+				Help: "number of dtcpip client",
+			},
 			[]string{
 				"name",
 			},
-			nil,
 		),
-		reservedConflictTotal: prometheus.NewDesc(
-			"nasne_conflict_total",
-			"number of conflict",
+
+		reservedConflictTotalGauge: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "nasne_conflict_total",
+				Help: "number of conflict",
+			},
 			[]string{
 				"name",
 			},
-			nil,
 		),
-		collectTime: prometheus.NewDesc(
-			"nasne_last_collect_time",
-			"time of last collect",
-			nil, nil,
+
+		collectTimeGauge: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "nasne_last_collect_time",
+				Help: "time of last collect",
+			},
+			[]string{},
 		),
 
 		totalCollectionDurationsHistogram: prometheus.NewHistogram(
 			prometheus.HistogramOpts{
 				Name:    "nasne_total_collection_durations_histogram_seconds",
 				Help:    "Total collection latency distributions.",
-				Buckets: prometheus.ExponentialBuckets(0.1, 2, 10),
+				Buckets: prometheus.LinearBuckets(1, 1, 10),
 			},
 		),
 
@@ -92,7 +105,7 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 			prometheus.HistogramOpts{
 				Name:    "nasne_collection_durations_histogram_seconds",
 				Help:    "Collection latency distributions.",
-				Buckets: prometheus.ExponentialBuckets(0.1, 2, 10),
+				Buckets: prometheus.LinearBuckets(1, 1, 10),
 			},
 			[]string{"name"},
 		),
@@ -102,53 +115,29 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 type NasneCollector struct {
 	nasneAddrs []string
 
-	info                  *prometheus.Desc
-	hddTotal              *prometheus.Desc
-	hddUsed               *prometheus.Desc
-	dtcpipClientTotal     *prometheus.Desc
-	recordedTitleTotal    *prometheus.Desc
-	reservedConflictTotal *prometheus.Desc
-	collectTime           *prometheus.Desc
-
+	infoGauge                         *prometheus.GaugeVec
+	hddTotalGauge                     *prometheus.GaugeVec
+	hddUsedGauge                      *prometheus.GaugeVec
+	dtcpipClientTotalGauge            *prometheus.GaugeVec
+	recordedTitleTotalGauge           *prometheus.GaugeVec
+	reservedConflictTotalGauge        *prometheus.GaugeVec
+	collectTimeGauge                  *prometheus.GaugeVec
 	totalCollectionDurationsHistogram prometheus.Histogram
 	collectionDurationsHistogram      *prometheus.HistogramVec
-
-	cache metricsCache
 }
 
-type metricsCache struct {
-	mu sync.Mutex
-	m  []prometheus.Metric
-}
-
-func (mc *metricsCache) Set(metricsList []prometheus.Metric) {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-
-	mc.m = metricsList
-}
-
-func (mc *metricsCache) Get() []prometheus.Metric {
-	mc.mu.Lock()
-	defer mc.mu.Unlock()
-
-	return mc.m
-}
-
-func (n *NasneCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- n.info
-	ch <- n.hddTotal
-	ch <- n.hddUsed
-	ch <- n.dtcpipClientTotal
-	ch <- n.recordedTitleTotal
-	ch <- n.reservedConflictTotal
-	ch <- n.collectTime
-}
-
-func (n *NasneCollector) Collect(ch chan<- prometheus.Metric) {
-	for _, m := range n.cache.Get() {
-		ch <- m
-	}
+func (n *NasneCollector) RegisterCollector(r *prometheus.Registry) {
+	r.MustRegister(
+		n.infoGauge,
+		n.hddTotalGauge,
+		n.hddUsedGauge,
+		n.dtcpipClientTotalGauge,
+		n.recordedTitleTotalGauge,
+		n.reservedConflictTotalGauge,
+		n.collectTimeGauge,
+		n.totalCollectionDurationsHistogram,
+		n.collectionDurationsHistogram,
+	)
 }
 
 func (n *NasneCollector) Run() error {
@@ -166,107 +155,91 @@ func (n *NasneCollector) Run() error {
 	return nil
 }
 
-func (n *NasneCollector) RegisterCollector(r *prometheus.Registry) {
-	r.MustRegister(n)
-	r.MustRegister(n.totalCollectionDurationsHistogram)
-	r.MustRegister(n.collectionDurationsHistogram)
+func (n *NasneCollector) collectNasneCollector(start, end time.Time) error {
+	n.totalCollectionDurationsHistogram.Observe(end.Sub(start).Seconds())
+	return nil
 }
 
-func (n *NasneCollector) collectNasneCollector(start, end time.Time) ([]prometheus.Metric, error) {
-	n.totalCollectionDurationsHistogram.Observe(float64(end.Sub(start).Nanoseconds()) / float64(time.Second))
-
-	return []prometheus.Metric{
-		prometheus.MustNewConstMetric(n.collectTime, prometheus.GaugeValue, float64(start.Unix())),
-	}, nil
+func (n *NasneCollector) collectCollectionDuration(start, end time.Time, commonLabel prometheus.Labels) error {
+	n.collectionDurationsHistogram.With(commonLabel).Observe(end.Sub(start).Seconds())
+	return nil
 }
 
-func (n *NasneCollector) collectCollectionDuration(start, end time.Time, commonLabel []string) ([]prometheus.Metric, error) {
-	n.collectionDurationsHistogram.WithLabelValues(commonLabel...).Observe(float64(end.Sub(start).Nanoseconds()) / float64(time.Second))
-	return []prometheus.Metric{}, nil
-}
-
-func (n *NasneCollector) collectVersion(client *nasneclient.NasneClient, commonLabel []string) ([]prometheus.Metric, error) {
+func (n *NasneCollector) collectVersion(client *nasneclient.NasneClient, commonLabel prometheus.Labels) error {
 	softwareVersion, err := client.GetSoftwareVersion()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	hardwareVersion, err := client.GetHardwareVersion()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	labelValues := []string{}
-	labelValues = append(labelValues, commonLabel...)
-	labelValues = append(labelValues,
-		softwareVersion.SoftwareVersion,
-		strconv.Itoa(hardwareVersion.HardwareVersion),
-		hardwareVersion.ProductName,
-	)
+	labels := prometheus.Labels{
+		"software_version": softwareVersion.SoftwareVersion,
+		"hardware_version": strconv.Itoa(hardwareVersion.HardwareVersion),
+		"product_name":     hardwareVersion.ProductName,
+	}
 
-	return []prometheus.Metric{
-		prometheus.MustNewConstMetric(n.info, prometheus.GaugeValue, float64(1), labelValues...),
-	}, nil
+	n.infoGauge.With(mergeLabels(commonLabel, labels)).Set(1)
+
+	return nil
 }
 
-func (n *NasneCollector) collectHDD(client *nasneclient.NasneClient, commonLabel []string) ([]prometheus.Metric, error) {
+func (n *NasneCollector) collectHDD(client *nasneclient.NasneClient, commonLabel prometheus.Labels) error {
 	hddList, err := client.GetHDDList()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	metrics := []prometheus.Metric{}
 	for _, hdd := range hddList.HDD {
 		hddInfo, err := client.GetHDDInfo(hdd.ID)
 		if err != nil {
 			glog.Fatal(err)
 		}
 
-		labelValues := []string{}
-		labelValues = append(labelValues, commonLabel...)
-		labelValues = append(labelValues,
-			strconv.Itoa(hddInfo.HDD.ID),
-			hddInfo.HDD.Format,
-			hddInfo.HDD.Name,
-			hddInfo.HDD.VendorID,
-			hddInfo.HDD.ProductID,
-		)
+		labels := prometheus.Labels{
+			"id":         strconv.Itoa(hddInfo.HDD.ID),
+			"format":     hddInfo.HDD.Format,
+			"hdd_name":   hddInfo.HDD.Name,
+			"vendor_id":  hddInfo.HDD.VendorID,
+			"product_id": hddInfo.HDD.ProductID,
+		}
 
-		metrics = append(metrics,
-			prometheus.MustNewConstMetric(n.hddTotal, prometheus.GaugeValue, hddInfo.HDD.TotalVolumeSize, labelValues...),
-			prometheus.MustNewConstMetric(n.hddUsed, prometheus.GaugeValue, hddInfo.HDD.UsedVolumeSize, labelValues...),
-		)
+		n.hddTotalGauge.With(mergeLabels(commonLabel, labels)).Set(hddInfo.HDD.TotalVolumeSize)
+		n.hddUsedGauge.With(mergeLabels(commonLabel, labels)).Set(hddInfo.HDD.UsedVolumeSize)
 	}
 
-	return metrics, nil
+	return nil
 }
 
-func (n *NasneCollector) collectDTCPClient(client *nasneclient.NasneClient, commonLabel []string) ([]prometheus.Metric, error) {
+func (n *NasneCollector) collectDTCPClient(client *nasneclient.NasneClient, commonLabel prometheus.Labels) error {
 	dtcpipClientList, err := client.GetDTCPIPClientList()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return []prometheus.Metric{
-		prometheus.MustNewConstMetric(n.dtcpipClientTotal, prometheus.GaugeValue, float64(dtcpipClientList.Number), commonLabel...),
-	}, nil
+	n.dtcpipClientTotalGauge.With(commonLabel).Set(float64(dtcpipClientList.Number))
+
+	return nil
 }
 
-func (n *NasneCollector) collectRecord(client *nasneclient.NasneClient, commonLabel []string) ([]prometheus.Metric, error) {
+func (n *NasneCollector) collectRecord(client *nasneclient.NasneClient, commonLabel prometheus.Labels) error {
 	recordedTitleList, err := client.GetRecordedTitleList()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return []prometheus.Metric{
-		prometheus.MustNewConstMetric(n.recordedTitleTotal, prometheus.GaugeValue, float64(recordedTitleList.TotalMatches), commonLabel...),
-	}, nil
+	n.recordedTitleTotalGauge.With(commonLabel).Set(float64(recordedTitleList.TotalMatches))
+
+	return nil
 }
 
-func (n *NasneCollector) collectReserve(client *nasneclient.NasneClient, commonLabel []string) ([]prometheus.Metric, error) {
+func (n *NasneCollector) collectReserve(client *nasneclient.NasneClient, commonLabel prometheus.Labels) error {
 	reservedList, err := client.GetReservedList()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var conflictCount float64
@@ -276,27 +249,25 @@ func (n *NasneCollector) collectReserve(client *nasneclient.NasneClient, commonL
 		}
 	}
 
-	return []prometheus.Metric{
-		prometheus.MustNewConstMetric(n.reservedConflictTotal, prometheus.GaugeValue, conflictCount, commonLabel...),
-	}, nil
+	n.reservedConflictTotalGauge.With(commonLabel).Set(conflictCount)
+
+	return nil
 }
 
-func (n *NasneCollector) getCommonLabel(client *nasneclient.NasneClient) ([]string, error) {
+func (n *NasneCollector) getCommonLabel(client *nasneclient.NasneClient) (prometheus.Labels, error) {
 	bn, err := client.GetBoxName()
 	if err != nil {
 		return nil, err
 	}
 
-	return []string{
-		bn.Name,
+	return prometheus.Labels{
+		"name": bn.Name,
 	}, nil
 }
 
 func (n *NasneCollector) runCollect() {
 	glog.V(2).Info("start collect")
 	start := time.Now()
-
-	metrics := []prometheus.Metric{}
 
 	for _, ip := range n.nasneAddrs {
 		glog.V(2).Infof("start colllect: ipaddr = %v", ip)
@@ -314,52 +285,49 @@ func (n *NasneCollector) runCollect() {
 			continue
 		}
 
-		if m, err := n.collectVersion(client, commonLabel); err != nil {
+		if err := n.collectVersion(client, commonLabel); err != nil {
 			glog.Error(err)
-		} else {
-			metrics = append(metrics, m...)
 		}
 
-		if m, err := n.collectHDD(client, commonLabel); err != nil {
+		if err := n.collectHDD(client, commonLabel); err != nil {
 			glog.Error(err)
-		} else {
-			metrics = append(metrics, m...)
 		}
 
-		if m, err := n.collectDTCPClient(client, commonLabel); err != nil {
+		if err := n.collectDTCPClient(client, commonLabel); err != nil {
 			glog.Error(err)
-		} else {
-			metrics = append(metrics, m...)
 		}
 
-		if m, err := n.collectRecord(client, commonLabel); err != nil {
+		if err := n.collectRecord(client, commonLabel); err != nil {
 			glog.Error(err)
-		} else {
-			metrics = append(metrics, m...)
 		}
 
-		if m, err := n.collectReserve(client, commonLabel); err != nil {
+		if err := n.collectReserve(client, commonLabel); err != nil {
 			glog.Error(err)
-		} else {
-			metrics = append(metrics, m...)
 		}
 
-		if m, err := n.collectCollectionDuration(startEach, time.Now(), commonLabel); err != nil {
+		if err := n.collectCollectionDuration(startEach, time.Now(), commonLabel); err != nil {
 			glog.Error(err)
-		} else {
-			metrics = append(metrics, m...)
 		}
 
 		glog.V(2).Infof("end colllect: ipaddr = %v", ip)
 	}
 
-	if m, err := n.collectNasneCollector(start, time.Now()); err != nil {
+	if err := n.collectNasneCollector(start, time.Now()); err != nil {
 		glog.Error(err)
-	} else {
-		metrics = append(metrics, m...)
 	}
 
-	n.cache.Set(metrics)
-
 	glog.V(2).Info("end collect")
+}
+
+func mergeLabels(l1, l2 prometheus.Labels) prometheus.Labels {
+	l := prometheus.Labels{}
+
+	for k, v := range l1 {
+		l[k] = v
+	}
+	for k, v := range l2 {
+		l[k] = v
+	}
+
+	return l
 }
