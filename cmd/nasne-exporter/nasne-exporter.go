@@ -13,6 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -40,9 +42,9 @@ func NewCommand() *cobra.Command {
 
 	// debug
 	nasneAddr := []string{
-		"10.0.1.23",
-		"10.0.1.25",
-		"10.0.1.22",
+		"10.0.1.34",
+		"10.0.1.30",
+		"10.0.1.31",
 	}
 
 	cmd.Flags().StringSlice(flagNasneAddr, nasneAddr, "Address of Nasne")
@@ -56,7 +58,10 @@ func NewCommand() *cobra.Command {
 }
 
 func RunNasneExporter(cmd *cobra.Command, args []string) error {
-	flag.Parse()
+	//flag.Parse()
+	pflag.Parse()
+	viper.BindPFlags(pflag.CommandLine)
+
 	glog.V(2).Info("start nasne-exporter")
 
 	nasneAddr, err := cmd.Flags().GetStringSlice(flagNasneAddr)

@@ -33,6 +33,42 @@ data:
       - targets:
         - nasne-exporter:8080
 ---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: prometheus
+spec:
+  capacity:
+    storage: 100Gi
+  volumeMode: Filesystem
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  local:
+    path: /data/prometheus
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - raspi002
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus
+spec:
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 10Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -54,12 +90,17 @@ spec:
         configMap:
           name: prometheus-config
       - name: prometheus-data
-        hostPath:
-          path: /data/prometheus
-          type: Directory
+        persistentVolumeClaim:
+          claimName: prometheus
       containers:
       - name: prometheus
         image: quay.io/arm-container/prometheus
+        args:
+        - --storage.tsdb.retention=186d
+        - --config.file=/etc/prometheus/prometheus.yml
+        - --storage.tsdb.path=/prometheus
+        - --web.console.libraries=/usr/share/prometheus/console_libraries
+        - --web.console.templates=/usr/share/prometheus/consoles
         ports:
         - containerPort: 9090
         volumeMounts:
