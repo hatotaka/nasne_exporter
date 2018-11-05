@@ -22,6 +22,9 @@ const (
 )
 
 func main() {
+
+	flag.CommandLine.Parse([]string{})
+
 	c := NewCommand()
 
 	err := c.Execute()

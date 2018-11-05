@@ -96,7 +96,7 @@ spec:
       - name: prometheus
         image: quay.io/arm-container/prometheus
         args:
-        - --storage.tsdb.retention=186d
+        - --storage.tsdb.retention=365d
         - --config.file=/etc/prometheus/prometheus.yml
         - --storage.tsdb.path=/prometheus
         - --web.console.libraries=/usr/share/prometheus/console_libraries
