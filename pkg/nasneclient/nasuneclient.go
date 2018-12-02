@@ -117,6 +117,14 @@ func (nc *NasneClient) GetReservedList() (*ReservedList, error) {
 	return rl, nil
 }
 
+func (nc *NasneClient) GetBoxStatusList() (*BoxStatusList, error) {
+	bsl := &BoxStatusList{}
+	if err := nc.getJson("status/boxStatusListGet", portStatus, bsl, nil); err != nil {
+		return nil, err
+	}
+	return bsl, nil
+}
+
 func (nc *NasneClient) getJson(endpoint string, port int, data interface{}, values *url.Values) error {
 	var query string
 	if values != nil {

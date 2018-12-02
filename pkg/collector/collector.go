@@ -65,6 +65,16 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 			},
 		),
 
+		recordTotalGauge: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "nasne_record_total",
+				Help: "nasne record total",
+			},
+			[]string{
+				"name",
+			},
+		),
+
 		recordedTitleTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Name: "nasne_recorded_title_total",
@@ -119,6 +129,7 @@ type NasneCollector struct {
 	hddTotalGauge                     *prometheus.GaugeVec
 	hddUsedGauge                      *prometheus.GaugeVec
 	dtcpipClientTotalGauge            *prometheus.GaugeVec
+	recordTotalGauge                  *prometheus.GaugeVec
 	recordedTitleTotalGauge           *prometheus.GaugeVec
 	reservedConflictTotalGauge        *prometheus.GaugeVec
 	collectTimeGauge                  *prometheus.GaugeVec
@@ -132,6 +143,7 @@ func (n *NasneCollector) RegisterCollector(r *prometheus.Registry) {
 		n.hddTotalGauge,
 		n.hddUsedGauge,
 		n.dtcpipClientTotalGauge,
+		n.recordTotalGauge,
 		n.recordedTitleTotalGauge,
 		n.reservedConflictTotalGauge,
 		n.collectTimeGauge,
@@ -225,6 +237,22 @@ func (n *NasneCollector) collectDTCPClient(client *nasneclient.NasneClient, comm
 	return nil
 }
 
+func (n *NasneCollector) collectRecordNow(client *nasneclient.NasneClient, commonLabel prometheus.Labels) error {
+	boxStatusList, err := client.GetBoxStatusList()
+	if err != nil {
+		return err
+	}
+
+	var recordTotal float64
+	if boxStatusList.TuningStatus.Status == 3 {
+		recordTotal = 1
+	}
+
+	n.recordTotalGauge.With(commonLabel).Set(recordTotal)
+
+	return nil
+}
+
 func (n *NasneCollector) collectRecord(client *nasneclient.NasneClient, commonLabel prometheus.Labels) error {
 	recordedTitleList, err := client.GetRecordedTitleList()
 	if err != nil {
@@ -294,6 +322,10 @@ func (n *NasneCollector) runCollect() {
 		}
 
 		if err := n.collectDTCPClient(client, commonLabel); err != nil {
+			glog.Error(err)
+		}
+
+		if err := n.collectRecordNow(client, commonLabel); err != nil {
 			glog.Error(err)
 		}
 

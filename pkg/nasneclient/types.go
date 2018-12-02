@@ -111,3 +111,15 @@ type ReservedListItem struct {
 	ConflictID int
 	EventID    int
 }
+
+type BoxStatusList struct {
+	Errorcode    int
+	TuningStatus BoxStatusListTuningStatus
+}
+
+type BoxStatusListTuningStatus struct {
+	Status            int
+	NetworkId         int
+	TransportStreamId int
+	ServiceId         int
+}
