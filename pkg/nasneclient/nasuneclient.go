@@ -27,11 +27,6 @@ func NewNasneClient(ipAddr string) (*NasneClient, error) {
 	return &NasneClient{ipAddr}, nil
 }
 
-type BoxName struct {
-	Errorcode int
-	Name      string
-}
-
 func (nc *NasneClient) GetBoxName() (*BoxName, error) {
 	bn := &BoxName{}
 	if err := nc.getJson("status/boxNameGet", portStatus, bn, nil); err != nil {
@@ -39,12 +34,6 @@ func (nc *NasneClient) GetBoxName() (*BoxName, error) {
 	}
 
 	return bn, nil
-}
-
-type SoftwareVersion struct {
-	BackdatedVersion string
-	SoftwareVersion  string
-	Errcode          int
 }
 
 func (nc *NasneClient) GetSoftwareVersion() (*SoftwareVersion, error) {
@@ -56,12 +45,6 @@ func (nc *NasneClient) GetSoftwareVersion() (*SoftwareVersion, error) {
 	return sv, nil
 }
 
-type HardwareVersion struct {
-	ProductName     string
-	HardwareVersion int
-	Errorcode       int
-}
-
 func (nc *NasneClient) GetHardwareVersion() (*HardwareVersion, error) {
 	hv := &HardwareVersion{}
 	if err := nc.getJson("status/hardwareVersionGet", portStatus, hv, nil); err != nil {
@@ -69,26 +52,6 @@ func (nc *NasneClient) GetHardwareVersion() (*HardwareVersion, error) {
 	}
 
 	return hv, nil
-}
-
-type HDDInfo struct {
-	HDD       HDDInfoHDD
-	Errorcode int
-}
-
-type HDDInfoHDD struct {
-	TotalVolumeSize float64
-	FreeVolumeSize  float64
-	UsedVolumeSize  float64
-	SerialNumber    string
-	ID              int
-	InternalFlag    int
-	MountStatus     int
-	RegisterFlag    int
-	Format          string
-	Name            string
-	VendorID        string
-	ProductID       string
 }
 
 func (nc *NasneClient) GetHDDInfo(id int) (*HDDInfo, error) {
@@ -101,51 +64,12 @@ func (nc *NasneClient) GetHDDInfo(id int) (*HDDInfo, error) {
 	return hi, nil
 }
 
-type HDDList struct {
-	Errorcode int
-	Number    int
-	HDD       []*HDDListHDD
-}
-
-type HDDListHDD struct {
-	ID           int
-	InternalFlag int
-	MountStatus  int
-	RegisterFlag int
-}
-
 func (nc *NasneClient) GetHDDList() (*HDDList, error) {
 	hl := &HDDList{}
 	if err := nc.getJson("status/HDDListGet", portStatus, hl, nil); err != nil {
 		return nil, err
 	}
 	return hl, nil
-}
-
-type DTCPIPClientList struct {
-	Errorcode int
-	Number    int
-	Client    []*DTCPIPClientListClient
-}
-
-type DTCPIPClientListClient struct {
-	ID          int
-	MacAddr     string
-	IpAddr      string
-	Name        string
-	Purpose     int
-	LiveInfo    *LiveInfo
-	Content     *Content
-	EncryptType int
-}
-
-type LiveInfo struct {
-	BroadcastingType int
-	ServiceID        int
-}
-
-type Content struct {
-	ID string
 }
 
 func (nc *NasneClient) GetDTCPIPClientList() (*DTCPIPClientList, error) {
@@ -155,28 +79,6 @@ func (nc *NasneClient) GetDTCPIPClientList() (*DTCPIPClientList, error) {
 	}
 
 	return dl, nil
-}
-
-type RecordedTitleList struct {
-	Errorcode      int
-	Item           []*RecordedTitleListItem
-	TotalMatches   int
-	NumberReturned int
-}
-
-type RecordedTitleListItem struct {
-	ID               string
-	Title            string
-	Description      string
-	StartDateTime    string
-	Duration         int
-	ConditionID      string
-	Quality          int
-	ChannelName      string
-	ChannelNumber    int
-	BroadcastingType int
-	ServiceID        int
-	EventID          int
 }
 
 func (nc *NasneClient) GetRecordedTitleList() (*RecordedTitleList, error) {
@@ -194,20 +96,6 @@ func (nc *NasneClient) GetRecordedTitleList() (*RecordedTitleList, error) {
 	}
 
 	return rtl, nil
-}
-
-type ReservedList struct {
-	Errorcode int
-	Item      []*ReservedListItem
-}
-
-type ReservedListItem struct {
-	ID          string
-	Title       string
-	Descritpion string
-
-	ConflictID int
-	EventID    int
 }
 
 func (nc *NasneClient) GetReservedList() (*ReservedList, error) {

@@ -3,6 +3,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-config
+  namespace: prometheus
 data:
   prometheus.yml: |
     global:
@@ -37,6 +38,7 @@ apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: prometheus
+  namespace: prometheus
 spec:
   capacity:
     storage: 100Gi
@@ -60,6 +62,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: prometheus
+  namespace: prometheus
 spec:
   accessModes:
     - ReadWriteOnce
@@ -73,6 +76,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus
+  namespace: prometheus
   labels:
     app: prometheus
 spec:
@@ -90,8 +94,13 @@ spec:
         configMap:
           name: prometheus-config
       - name: prometheus-data
-        persistentVolumeClaim:
-          claimName: prometheus
+        hostPath:
+          path: /data/prometheus
+          type: Directory
+          #        persistentVolumeClaim:
+          #          claimName: prometheus
+      nodeSelector:
+        kubernetes.io/hostname: raspi002
       containers:
       - name: prometheus
         image: quay.io/arm-container/prometheus
@@ -114,6 +123,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name:  prometheus
+  namespace: prometheus
 spec:
   selector:
     app: prometheus

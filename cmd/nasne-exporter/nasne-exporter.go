@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,7 +18,7 @@ import (
 
 const (
 	flagNasneAddr   = "nasne-addr"
-	flagListen      = "listen"
+	flagPort        = "port"
 	flagMetricsPath = "metrics-path"
 )
 
@@ -41,9 +42,9 @@ func NewCommand() *cobra.Command {
 		RunE:  RunNasneExporter,
 	}
 
-	cmd.Flags().StringSlice(flagNasneAddr, nil, "Address of Nasne")
-	cmd.Flags().String(flagListen, ":8080", "Listen")
-	cmd.Flags().String(flagMetricsPath, "/metrics", "Path of metrics")
+	cmd.Flags().StringSlice(flagNasneAddr, nil, "The address list of nasne.")
+	cmd.Flags().Int(flagPort, 8080, "The port of the endpoint.")
+	cmd.Flags().String(flagMetricsPath, "/metrics", "The path of metrics.")
 
 	flag.Lookup("logtostderr").Value.Set("true")
 	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
@@ -60,11 +61,11 @@ func RunNasneExporter(cmd *cobra.Command, args []string) error {
 	}
 	glog.V(2).Infof("%v = %v", flagNasneAddr, nasneAddr)
 
-	listen, err := cmd.Flags().GetString(flagListen)
+	port, err := cmd.Flags().GetInt(flagPort)
 	if err != nil {
 		return err
 	}
-	glog.V(2).Infof("%v = %v", flagListen, listen)
+	glog.V(2).Infof("%v = %v", flagPort, port)
 
 	metricsPath, err := cmd.Flags().GetString(flagMetricsPath)
 	if err != nil {
@@ -78,9 +79,12 @@ func RunNasneExporter(cmd *cobra.Command, args []string) error {
 	reg := prometheus.NewRegistry()
 	nc.RegisterCollector(reg)
 
+	mux := http.NewServeMux()
+	mux.Handle(metricsPath, promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
+
 	srv := &http.Server{
-		Addr:    listen,
-		Handler: promhttp.HandlerFor(reg, promhttp.HandlerOpts{}),
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: mux,
 	}
 
 	errCh := make(chan error, 0)
@@ -107,5 +111,6 @@ func RunNasneExporter(cmd *cobra.Command, args []string) error {
 		glog.Error(err)
 	}
 
+	glog.V(2).Info("stop nasne-exporter")
 	return nil
 }
