@@ -14,4 +14,23 @@
 | `nasne_conflict_total` | Gauge |`name` | ?? |
 | `nasne_dtcpip_clients_total` | Gauge |`name` | 現在接続されているDTCP-IPのクライアント数 |
 
-## :
+## ビルドと実行
+
+以下のソフトウェアに依存しています｡
+
+- (Go compiler)[https://golang.org/dl/]
+
+以下の手順でビルドできます｡
+
+```
+go get github.com/hatotaka/nasne_exporter
+cd ${GOPATH-$HOME/go}/src/github.com/hatotaka/nasne_exporter
+make
+./nasne_exporter <flags>
+```
+
+フラグは以下の方法で確認できます｡
+
+```
+./nasne_exporter -h
+```
