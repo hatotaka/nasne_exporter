@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: nasne-exporter
-        image: quay.io/hatotaka/nasne-exporter:v0.0.5-arm
+        image: quay.io/hatotaka/nasne-exporter:v0.0.6-arm
         args:
           - --nasne-addr=10.0.1.34
           - --nasne-addr=10.0.1.30

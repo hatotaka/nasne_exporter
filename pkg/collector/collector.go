@@ -11,6 +11,16 @@ import (
 
 const (
 	namespace = "nasne"
+
+	labelName            = "name"
+	labelID              = "id"
+	labelFormat          = "format"
+	labelSoftwareVersion = "software_version"
+	labelHardwareVersion = "hardware_version"
+	labelProductName     = "product_name"
+	labelHDDName         = "hdd_name"
+	labelVendorID        = "vendor_id"
+	labelProductID       = "product_id"
 )
 
 func NewNasneCollector(nasneAddrs []string) *NasneCollector {
@@ -21,13 +31,13 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 			prometheus.GaugeOpts{
 				Namespace: namespace,
 				Name:      "info",
-				Help:      "info of nasne",
+				Help:      "Information of nasne.",
 			},
 			[]string{
-				"name",
-				"software_version",
-				"hardware_version",
-				"product_name",
+				labelName,
+				labelSoftwareVersion,
+				labelHardwareVersion,
+				labelProductName,
 			},
 		),
 		hddTotalGauge: prometheus.NewGaugeVec(
@@ -37,12 +47,12 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 				Help:      "HDD size in bytes.",
 			},
 			[]string{
-				"name",
-				"id",
-				"format",
-				"hdd_name",
-				"vendor_id",
-				"product_id",
+				labelName,
+				labelID,
+				labelFormat,
+				labelHDDName,
+				labelVendorID,
+				labelProductID,
 			},
 		),
 
@@ -53,12 +63,12 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 				Help:      "HDD usage in bytes.",
 			},
 			[]string{
-				"name",
-				"id",
-				"format",
-				"hdd_name",
-				"vendor_id",
-				"product_id",
+				labelName,
+				labelID,
+				labelFormat,
+				labelHDDName,
+				labelVendorID,
+				labelProductID,
 			},
 		),
 
@@ -66,21 +76,21 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 			prometheus.GaugeOpts{
 				Namespace: namespace,
 				Name:      "dtcpip_clients_total",
-				Help:      "nasne dtcpip clients total",
+				Help:      "Number of clients connected with DTCP-IP.",
 			},
 			[]string{
-				"name",
+				labelName,
 			},
 		),
 
 		recordTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "record_total",
-				Help:      "nasne record total",
+				Name:      "recordings_total",
+				Help:      "Number of recordings.",
 			},
 			[]string{
-				"name",
+				labelName,
 			},
 		),
 
@@ -88,10 +98,10 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 			prometheus.GaugeOpts{
 				Namespace: namespace,
 				Name:      "recorded_title_total",
-				Help:      "number of dtcpip client",
+				Help:      "Number of recorded titles.",
 			},
 			[]string{
-				"name",
+				labelName,
 			},
 		),
 
@@ -99,10 +109,10 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 			prometheus.GaugeOpts{
 				Namespace: namespace,
 				Name:      "conflict_total",
-				Help:      "number of conflict",
+				Help:      "Number of conflict.",
 			},
 			[]string{
-				"name",
+				labelName,
 			},
 		),
 
@@ -110,7 +120,7 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 			prometheus.GaugeOpts{
 				Namespace: namespace,
 				Name:      "last_collect_time",
-				Help:      "time of last collect",
+				Help:      "Time of last collect.",
 			},
 			[]string{},
 		),
@@ -121,7 +131,9 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 				Help:    "Collection latency distributions.",
 				Buckets: prometheus.LinearBuckets(1, 1, 10),
 			},
-			[]string{"name"},
+			[]string{
+				labelName,
+			},
 		),
 	}
 }
@@ -186,9 +198,9 @@ func (n *NasneCollector) collectVersion(client *nasneclient.NasneClient, commonL
 	}
 
 	labels := prometheus.Labels{
-		"software_version": softwareVersion.SoftwareVersion,
-		"hardware_version": strconv.Itoa(hardwareVersion.HardwareVersion),
-		"product_name":     hardwareVersion.ProductName,
+		labelSoftwareVersion: softwareVersion.SoftwareVersion,
+		labelHardwareVersion: strconv.Itoa(hardwareVersion.HardwareVersion),
+		labelProductName:     hardwareVersion.ProductName,
 	}
 
 	n.infoGauge.With(mergeLabels(commonLabel, labels)).Set(1)
@@ -209,11 +221,11 @@ func (n *NasneCollector) collectHDD(client *nasneclient.NasneClient, commonLabel
 		}
 
 		labels := prometheus.Labels{
-			"id":         strconv.Itoa(hddInfo.HDD.ID),
-			"format":     hddInfo.HDD.Format,
-			"hdd_name":   hddInfo.HDD.Name,
-			"vendor_id":  hddInfo.HDD.VendorID,
-			"product_id": hddInfo.HDD.ProductID,
+			labelID:        strconv.Itoa(hddInfo.HDD.ID),
+			labelFormat:    hddInfo.HDD.Format,
+			labelHDDName:   hddInfo.HDD.Name,
+			labelVendorID:  hddInfo.HDD.VendorID,
+			labelProductID: hddInfo.HDD.ProductID,
 		}
 
 		n.hddTotalGauge.With(mergeLabels(commonLabel, labels)).Set(hddInfo.HDD.TotalVolumeSize)
@@ -286,7 +298,7 @@ func (n *NasneCollector) getCommonLabel(client *nasneclient.NasneClient) (promet
 	}
 
 	return prometheus.Labels{
-		"name": bn.Name,
+		labelName: bn.Name,
 	}, nil
 }
 
