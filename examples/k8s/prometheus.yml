@@ -3,7 +3,6 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-config
-  namespace: prometheus
 data:
   prometheus.yml: |
     global:
@@ -32,51 +31,12 @@ data:
       scheme: http
       static_configs:
       - targets:
-        - nasne-exporter:8080
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: prometheus
-  namespace: prometheus
-spec:
-  capacity:
-    storage: 100Gi
-  volumeMode: Filesystem
-  accessModes:
-  - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: local-storage
-  local:
-    path: /data/prometheus
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-      - matchExpressions:
-        - key: kubernetes.io/hostname
-          operator: In
-          values:
-          - raspi002
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: prometheus
-  namespace: prometheus
-spec:
-  accessModes:
-    - ReadWriteOnce
-  volumeMode: Filesystem
-  storageClassName: local-storage
-  resources:
-    requests:
-      storage: 10Gi
+        - nasne_exporter:8080
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus
-  namespace: prometheus
   labels:
     app: prometheus
 spec:
@@ -93,12 +53,6 @@ spec:
       - name: prometheus-config
         configMap:
           name: prometheus-config
-      - name: prometheus-data
-        hostPath:
-          path: /data/prometheus
-          type: Directory
-          #        persistentVolumeClaim:
-          #          claimName: prometheus
       nodeSelector:
         kubernetes.io/hostname: raspi002
       containers:
@@ -116,14 +70,11 @@ spec:
           - name: prometheus-config
             mountPath: /etc/prometheus/prometheus.yml
             subPath: prometheus.yml
-          - name: prometheus-data
-            mountPath: /prometheus
 ---
 kind: Service
 apiVersion: v1
 metadata:
   name:  prometheus
-  namespace: prometheus
 spec:
   selector:
     app: prometheus

@@ -1,10 +1,11 @@
 PACKAGE_NAME=github.com/hatotaka/nasne_exporter
 CONTAINER_NAME=quay.io/hatotaka/nasne_exporter
+BIN_NAME=nasne_exporter
 
 
 .PHONY: build-local build-container clean
 build-local:
-	go build -o nasne_exporter $(PACKAGE_NAME)/cmd/nasne_exporter
+	go build -o ${BIN_NAME} $(PACKAGE_NAME)/cmd/nasne_exporter
 
 build-container:
 	docker build \
@@ -12,4 +13,4 @@ build-container:
 		-f build/package/Dockerfile.amd64 \
 		.
 clean:
-	rm -rf nasne_exporter
+	rm -rf ${BIN_NAME}

@@ -1,0 +1,40 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nasne_exporter
+  labels:
+    app: nasne_exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nasne_exporter
+  template:
+    metadata:
+      labels:
+        app: nasne_exporter
+    spec:
+      containers:
+      - name: nasne_exporter
+        image: quay.io/hatotaka/nasne_exporter:v1.0.0
+        args:
+          - --nasne-addr=192.0.2.1
+          - --nasne-addr=192.0.2.2
+          - --nasne-addr=192.0.2.3
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nasne_exporter
+spec:
+  selector:
+    app: nasne_exporter
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: NodePort
