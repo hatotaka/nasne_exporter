@@ -13,3 +13,5 @@
 | `nasne_recorded_title_total` | Gauge |`name` | 録画された件数 |
 | `nasne_conflict_total` | Gauge |`name` | ?? |
 | `nasne_dtcpip_clients_total` | Gauge |`name` | 現在接続されているDTCP-IPのクライアント数 |
+
+## :

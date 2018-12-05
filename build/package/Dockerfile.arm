@@ -1,5 +1,5 @@
 ## Build
-FROM golang:1.10 AS build
+FROM golang:1.11 AS build
 
 ENV workdir /go/src/github.com/hatotaka/nasne-exporter
 ENV CGO_ENABLED 0
