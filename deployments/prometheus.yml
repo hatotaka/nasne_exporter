@@ -103,7 +103,7 @@ spec:
         kubernetes.io/hostname: raspi002
       containers:
       - name: prometheus
-        image: quay.io/arm-container/prometheus
+        image: quay.io/arm-container/prometheus:v2.5.0-0
         args:
         - --storage.tsdb.retention=365d
         - --config.file=/etc/prometheus/prometheus.yml

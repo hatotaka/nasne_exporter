@@ -9,14 +9,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+const (
+	namespace = "nasne"
+)
+
 func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 	return &NasneCollector{
 		nasneAddrs: nasneAddrs,
 
 		infoGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "nasne_info",
-				Help: "info of nasne",
+				Namespace: namespace,
+				Name:      "info",
+				Help:      "info of nasne",
 			},
 			[]string{
 				"name",
@@ -27,8 +32,9 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 		),
 		hddTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "nasne_hdd_byte_total",
-				Help: "nasne hdd byte total",
+				Namespace: namespace,
+				Name:      "hdd_size_bytes",
+				Help:      "HDD size in bytes.",
 			},
 			[]string{
 				"name",
@@ -42,8 +48,9 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 
 		hddUsedGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "nasne_hdd_byte_used",
-				Help: "nasne hdd byte used",
+				Namespace: namespace,
+				Name:      "hdd_usage_bytes",
+				Help:      "HDD usage in bytes.",
 			},
 			[]string{
 				"name",
@@ -57,8 +64,9 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 
 		dtcpipClientTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "nasne_dtcpip_client_total",
-				Help: "nasne dtcpip client total",
+				Namespace: namespace,
+				Name:      "dtcpip_clients_total",
+				Help:      "nasne dtcpip clients total",
 			},
 			[]string{
 				"name",
@@ -67,8 +75,9 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 
 		recordTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "nasne_record_total",
-				Help: "nasne record total",
+				Namespace: namespace,
+				Name:      "record_total",
+				Help:      "nasne record total",
 			},
 			[]string{
 				"name",
@@ -77,8 +86,9 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 
 		recordedTitleTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "nasne_recorded_title_total",
-				Help: "number of dtcpip client",
+				Namespace: namespace,
+				Name:      "recorded_title_total",
+				Help:      "number of dtcpip client",
 			},
 			[]string{
 				"name",
@@ -87,8 +97,9 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 
 		reservedConflictTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "nasne_conflict_total",
-				Help: "number of conflict",
+				Namespace: namespace,
+				Name:      "conflict_total",
+				Help:      "number of conflict",
 			},
 			[]string{
 				"name",
@@ -97,23 +108,16 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 
 		collectTimeGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "nasne_last_collect_time",
-				Help: "time of last collect",
+				Namespace: namespace,
+				Name:      "last_collect_time",
+				Help:      "time of last collect",
 			},
 			[]string{},
 		),
 
-		totalCollectionDurationsHistogram: prometheus.NewHistogram(
-			prometheus.HistogramOpts{
-				Name:    "nasne_total_collection_durations_histogram_seconds",
-				Help:    "Total collection latency distributions.",
-				Buckets: prometheus.LinearBuckets(1, 1, 10),
-			},
-		),
-
 		collectionDurationsHistogram: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:    "nasne_collection_durations_histogram_seconds",
+				Name:    "nasne_collection_durations_seconds",
 				Help:    "Collection latency distributions.",
 				Buckets: prometheus.LinearBuckets(1, 1, 10),
 			},
@@ -125,16 +129,15 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 type NasneCollector struct {
 	nasneAddrs []string
 
-	infoGauge                         *prometheus.GaugeVec
-	hddTotalGauge                     *prometheus.GaugeVec
-	hddUsedGauge                      *prometheus.GaugeVec
-	dtcpipClientTotalGauge            *prometheus.GaugeVec
-	recordTotalGauge                  *prometheus.GaugeVec
-	recordedTitleTotalGauge           *prometheus.GaugeVec
-	reservedConflictTotalGauge        *prometheus.GaugeVec
-	collectTimeGauge                  *prometheus.GaugeVec
-	totalCollectionDurationsHistogram prometheus.Histogram
-	collectionDurationsHistogram      *prometheus.HistogramVec
+	infoGauge                    *prometheus.GaugeVec
+	hddTotalGauge                *prometheus.GaugeVec
+	hddUsedGauge                 *prometheus.GaugeVec
+	dtcpipClientTotalGauge       *prometheus.GaugeVec
+	recordTotalGauge             *prometheus.GaugeVec
+	recordedTitleTotalGauge      *prometheus.GaugeVec
+	reservedConflictTotalGauge   *prometheus.GaugeVec
+	collectTimeGauge             *prometheus.GaugeVec
+	collectionDurationsHistogram *prometheus.HistogramVec
 }
 
 func (n *NasneCollector) RegisterCollector(r *prometheus.Registry) {
@@ -147,7 +150,6 @@ func (n *NasneCollector) RegisterCollector(r *prometheus.Registry) {
 		n.recordedTitleTotalGauge,
 		n.reservedConflictTotalGauge,
 		n.collectTimeGauge,
-		n.totalCollectionDurationsHistogram,
 		n.collectionDurationsHistogram,
 	)
 }
@@ -164,11 +166,6 @@ func (n *NasneCollector) Run() error {
 		n.runCollect()
 	}
 
-	return nil
-}
-
-func (n *NasneCollector) collectNasneCollector(start, end time.Time) error {
-	n.totalCollectionDurationsHistogram.Observe(end.Sub(start).Seconds())
 	return nil
 }
 
@@ -295,11 +292,10 @@ func (n *NasneCollector) getCommonLabel(client *nasneclient.NasneClient) (promet
 
 func (n *NasneCollector) runCollect() {
 	glog.V(2).Info("start collect")
-	start := time.Now()
 
 	for _, ip := range n.nasneAddrs {
 		glog.V(2).Infof("start colllect: ipaddr = %v", ip)
-		startEach := time.Now()
+		start := time.Now()
 
 		client, err := nasneclient.NewNasneClient(ip)
 		if err != nil {
@@ -337,15 +333,11 @@ func (n *NasneCollector) runCollect() {
 			glog.Error(err)
 		}
 
-		if err := n.collectCollectionDuration(startEach, time.Now(), commonLabel); err != nil {
+		if err := n.collectCollectionDuration(start, time.Now(), commonLabel); err != nil {
 			glog.Error(err)
 		}
 
 		glog.V(2).Infof("end colllect: ipaddr = %v", ip)
-	}
-
-	if err := n.collectNasneCollector(start, time.Now()); err != nil {
-		glog.Error(err)
 	}
 
 	glog.V(2).Info("end collect")
