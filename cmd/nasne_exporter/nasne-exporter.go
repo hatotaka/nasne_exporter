@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/hatotaka/nasne-exporter/pkg/collector"
+	"github.com/hatotaka/nasne_exporter/pkg/collector"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
@@ -37,7 +37,7 @@ func main() {
 
 func NewCommand() *cobra.Command {
 	var cmd = &cobra.Command{
-		Use:   "nasne-exporter",
+		Use:   "nasne_exporter",
 		Short: "nasne exporter",
 		RunE:  RunNasneExporter,
 	}
@@ -53,7 +53,7 @@ func NewCommand() *cobra.Command {
 }
 
 func RunNasneExporter(cmd *cobra.Command, args []string) error {
-	glog.V(2).Info("start nasne-exporter")
+	glog.V(2).Info("start nasne_exporter")
 
 	nasneAddr, err := cmd.Flags().GetStringSlice(flagNasneAddr)
 	if err != nil {
@@ -111,6 +111,6 @@ func RunNasneExporter(cmd *cobra.Command, args []string) error {
 		glog.Error(err)
 	}
 
-	glog.V(2).Info("stop nasne-exporter")
+	glog.V(2).Info("stop nasne_exporter")
 	return nil
 }

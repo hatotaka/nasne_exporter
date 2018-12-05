@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/hatotaka/nasne-exporter/pkg/nasneclient"
+	"github.com/hatotaka/nasne_exporter/pkg/nasneclient"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
