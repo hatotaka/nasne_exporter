@@ -101,6 +101,9 @@ type RecordedTitleListItem struct {
 type ReservedList struct {
 	Errorcode int
 	Item      []*ReservedListItem
+
+	TotalMatches   int
+	NumberReturned int
 }
 
 type ReservedListItem struct {

@@ -55,7 +55,6 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 				labelProductID,
 			},
 		),
-
 		hddUsedGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
@@ -71,7 +70,6 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 				labelProductID,
 			},
 		),
-
 		dtcpipClientTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
@@ -82,7 +80,6 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 				labelName,
 			},
 		),
-
 		recordTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
@@ -93,7 +90,6 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 				labelName,
 			},
 		),
-
 		recordedTitleTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
@@ -104,11 +100,20 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 				labelName,
 			},
 		),
-
+		reservedTotalGauge: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Namespace: namespace,
+				Name:      "reserved_total",
+				Help:      "Number of reserved.",
+			},
+			[]string{
+				labelName,
+			},
+		),
 		reservedConflictTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "conflict_total",
+				Name:      "reserved_conflict_total",
 				Help:      "Number of conflict.",
 			},
 			[]string{
@@ -147,6 +152,7 @@ type NasneCollector struct {
 	dtcpipClientTotalGauge       *prometheus.GaugeVec
 	recordTotalGauge             *prometheus.GaugeVec
 	recordedTitleTotalGauge      *prometheus.GaugeVec
+	reservedTotalGauge           *prometheus.GaugeVec
 	reservedConflictTotalGauge   *prometheus.GaugeVec
 	collectTimeGauge             *prometheus.GaugeVec
 	collectionDurationsHistogram *prometheus.HistogramVec
@@ -160,6 +166,7 @@ func (n *NasneCollector) RegisterCollector(r *prometheus.Registry) {
 		n.dtcpipClientTotalGauge,
 		n.recordTotalGauge,
 		n.recordedTitleTotalGauge,
+		n.reservedTotalGauge,
 		n.reservedConflictTotalGauge,
 		n.collectTimeGauge,
 		n.collectionDurationsHistogram,
@@ -287,6 +294,7 @@ func (n *NasneCollector) collectReserve(client *nasneclient.NasneClient, commonL
 	}
 
 	n.reservedConflictTotalGauge.With(commonLabel).Set(conflictCount)
+	n.reservedTotalGauge.With(commonLabel).Set(float64(reservedList.TotalMatches))
 
 	return nil
 }

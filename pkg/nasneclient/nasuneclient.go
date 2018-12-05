@@ -103,7 +103,7 @@ func (nc *NasneClient) GetReservedList() (*ReservedList, error) {
 
 	param := url.Values{}
 	param.Add("searchCriteria", "0")
-	param.Add("&filter", "0")
+	param.Add("filter", "0")
 	param.Add("startingIndex", "0")
 	param.Add("requestedCount", "0")
 	param.Add("sortCriteria", "0")
