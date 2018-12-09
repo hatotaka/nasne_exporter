@@ -73,7 +73,7 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 		dtcpipClientTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "dtcpip_clients_total",
+				Name:      "dtcpip_clients",
 				Help:      "Number of clients connected with DTCP-IP.",
 			},
 			[]string{
@@ -83,7 +83,7 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 		recordTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "recordings_total",
+				Name:      "recordings",
 				Help:      "Number of recordings.",
 			},
 			[]string{
@@ -93,7 +93,7 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 		recordedTitleTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "recorded_title_total",
+				Name:      "recorded_titles",
 				Help:      "Number of recorded titles.",
 			},
 			[]string{
@@ -103,8 +103,8 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 		reservedTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "reserved_total",
-				Help:      "Number of reserved.",
+				Name:      "reserved_titles",
+				Help:      "Number of reserved titles.",
 			},
 			[]string{
 				labelName,
@@ -113,8 +113,8 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 		reservedConflictTotalGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: namespace,
-				Name:      "reserved_conflict_total",
-				Help:      "Number of conflict.",
+				Name:      "reserved_conflict_titles",
+				Help:      "Number of conflict titles.",
 			},
 			[]string{
 				labelName,
@@ -125,16 +125,17 @@ func NewNasneCollector(nasneAddrs []string) *NasneCollector {
 			prometheus.GaugeOpts{
 				Namespace: namespace,
 				Name:      "last_collect_time",
-				Help:      "Time of last collect.",
+				Help:      "Time of last collect metrics of nasne.",
 			},
 			[]string{},
 		),
 
 		collectionDurationsHistogram: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:    "nasne_collection_durations_seconds",
-				Help:    "Collection latency distributions.",
-				Buckets: prometheus.LinearBuckets(1, 1, 10),
+				Namespace: namespace,
+				Name:      "collect_duration_seconds",
+				Help:      "Collection latency distributions.",
+				Buckets:   prometheus.LinearBuckets(1, 1, 10),
 			},
 			[]string{
 				labelName,
@@ -158,7 +159,7 @@ type NasneCollector struct {
 	collectionDurationsHistogram *prometheus.HistogramVec
 }
 
-func (n *NasneCollector) RegisterCollector(r *prometheus.Registry) {
+func (n *NasneCollector) RegisterCollectors(r *prometheus.Registry) {
 	r.MustRegister(
 		n.infoGauge,
 		n.hddTotalGauge,

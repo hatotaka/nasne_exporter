@@ -17,13 +17,13 @@ import (
 )
 
 const (
-	flagNasneAddr   = "nasne-addr"
-	flagPort        = "port"
-	flagMetricsPath = "metrics-path"
+	flagNasneAddr        = "nasne-addr"
+	flagPort             = "port"
+	flagMetricsPath      = "metrics-path"
+	flagDefaultCollector = "default-collector"
 )
 
 func main() {
-
 	flag.CommandLine.Parse([]string{})
 
 	c := NewCommand()
@@ -45,6 +45,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringSlice(flagNasneAddr, nil, "The address list of nasne.")
 	cmd.Flags().Int(flagPort, 8080, "The port of the endpoint.")
 	cmd.Flags().String(flagMetricsPath, "/metrics", "The path of metrics.")
+	cmd.Flags().Bool(flagDefaultCollector, true, "Enable prometheus/client_go default collecter (ProcessCollector and GoCollectora)")
 
 	flag.Lookup("logtostderr").Value.Set("true")
 	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
@@ -73,11 +74,22 @@ func RunNasneExporter(cmd *cobra.Command, args []string) error {
 	}
 	glog.V(2).Infof("%v = %v", flagMetricsPath, metricsPath)
 
-	nc := collector.NewNasneCollector(nasneAddr)
-	go nc.Run()
+	defaultCollector, err := cmd.Flags().GetBool(flagDefaultCollector)
+	if err != nil {
+		return err
+	}
+	glog.V(2).Infof("%v = %v", flagDefaultCollector, defaultCollector)
 
 	reg := prometheus.NewRegistry()
-	nc.RegisterCollector(reg)
+
+	nc := collector.NewNasneCollector(nasneAddr)
+	go nc.Run()
+	nc.RegisterCollectors(reg)
+
+	if defaultCollector {
+		reg.MustRegister(prometheus.NewProcessCollector(os.Getpid(), ""))
+		reg.MustRegister(prometheus.NewGoCollector())
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle(metricsPath, promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
